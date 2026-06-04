@@ -71,13 +71,18 @@ src/mcp_tool_surface_eval/
 tests/             oracle/scoring/fragmentation tests (no network)
 ```
 
-## Scaffolded, not yet wired
+## Roadmap — the next experiment
 
-**The descriptions experiment** — does telling the model the caveats (ZCTA gaps,
-top-coding, form windows) reduce confident-wrong answers? The two arms exist
-(`surfaces.strip_caveats` builds the no-caveat surface), but scoring this one needs
-tool *execution* against real data plus answer grading, which the few-tools path
-deliberately avoids. That's the next build.
+**Descriptions: do honest caveats reduce confident-wrong answers?** (Principle 3 of the
+essay.) This is the planned second experiment, and it needs the opposite of the few-tools
+path: few-tools scores tool *selection* and never executes anything, whereas this one has
+to run the chosen tool against real data — a ZIP with no ZCTA, a top-coded income value, a
+filing outside the recent window — with and without the caveat in the tool's description,
+then grade whether the model reports the limitation or fabricates a confident answer.
+
+The control arm already exists (`surfaces.strip_caveats` builds the no-caveat surface); the
+execution-and-grading layer is the build. Designed but not yet implemented — tracked here so
+the scope is explicit rather than implied.
 
 ## Honesty notes
 
