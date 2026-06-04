@@ -62,6 +62,8 @@ tests/             oracle / scoring / fragmentation tests (no network)
 
 - **few-tools** — implemented and wired. Few orthogonal tools vs. the same capability
   fragmented one-tool-per-form/metric, scored on tool-selection accuracy.
-- **descriptions** — scaffolded only (`surfaces.strip_caveats` builds the no-caveat
-  arm). Wiring it needs tool *execution* + answer grading, which the few-tools path
-  deliberately avoids. This is the next build.
+- **descriptions** — designed, not yet implemented (the planned next experiment). The
+  control arm exists (`surfaces.strip_caveats` builds the no-caveat surface); the build
+  is the execution-and-grading layer — run the chosen tool against real data with and
+  without the caveat in its description, then grade whether the model reports the
+  limitation or fabricates a confident answer. See the README Roadmap.
