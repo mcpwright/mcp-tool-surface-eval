@@ -1,0 +1,353 @@
+{
+  "server": "edgar-mcp",
+  "tool_count": 11,
+  "tools": [
+    {
+      "name": "lookup_issuer",
+      "title": "Look up an issuer",
+      "description": "Resolve a company name or ticker to its SEC CIK and basic identity.\n\n    `query`: a ticker (e.g. \"AAPL\") or part of a company name (e.g. \"Apple\" or\n    \"StartEngine\"). Works for exchange-listed public companies AND private /\n    non-exchange filers (Reg CF / Reg A issuers, funds). Returns matching issuers\n    with their 10-digit CIK, legal name, tickers, and exchange. Resolve a CIK\n    here first \u2014 the other tools key off it.",
+      "input_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "limit": {
+            "default": 10,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "lookup_issuerArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_filings",
+      "title": "List an issuer's filings",
+      "description": "List the most recent filings for one issuer, newest first.\n\n    `cik_or_query`: a CIK (digits) or a ticker/name to resolve.\n    `form_type`: optional prefix filter, e.g. \"10-K\", \"8-K\", \"C\", \"D\".",
+      "input_schema": {
+        "properties": {
+          "cik_or_query": {
+            "title": "Cik Or Query",
+            "type": "string"
+          },
+          "form_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Form Type"
+          },
+          "limit": {
+            "default": 20,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cik_or_query"
+        ],
+        "title": "list_filingsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_filings",
+      "title": "Search filings full-text",
+      "description": "Full-text search across SEC filing documents.\n\n    `query`: free text (use quotes inside the string for exact phrases).\n    `forms`: optional list of form types to restrict to, e.g. [\"10-K\", \"8-K\"].\n    `date_from` / `date_to`: ISO dates (YYYY-MM-DD).",
+      "input_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "forms": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Forms"
+          },
+          "date_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Date From"
+          },
+          "date_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Date To"
+          },
+          "limit": {
+            "default": 20,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_filingsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_recent_offerings",
+      "title": "Browse recent offerings",
+      "description": "List recent securities offerings filed with the SEC, newest first.\n\n    `form`: \"C\" for Regulation Crowdfunding (Form C family \u2014 C, C/A, C-U, C-AR),\n    \"D\" for Regulation D (Form D family \u2014 D, D/A), or \"A\" for Regulation A\n    (Form 1-A family \u2014 1-A, 1-A/A, 1-A POS).\n    `since`: optional ISO date (YYYY-MM-DD) lower bound on the filing date.\n    `state`: optional 2-letter US state code (e.g. \"CA\") filtering on the\n    issuer's principal place of business; comma-separate for several.\n    Returns issuer, exact form, filed date, accession number, and a link.\n\n    Note: there's no industry filter here \u2014 EDGAR doesn't populate an industry\n    code on these listings. To screen by industry, open a result with\n    `get_form_d_details` (its `industry_group`) or `get_form_c_details`.",
+      "input_schema": {
+        "properties": {
+          "form": {
+            "default": "C",
+            "title": "Form",
+            "type": "string"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Since"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          },
+          "limit": {
+            "default": 20,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "title": "get_recent_offeringsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_filing",
+      "title": "Open a filing",
+      "description": "Open one filing: its metadata and the documents it contains.\n\n    `accession_or_url`: a filing `url` returned by another tool, OR an accession\n    number (e.g. \"0000320193-23-000106\"). With a bare accession number, also pass\n    `cik`. Returns the form, filing date, a link to the primary document, and\n    every document in the filing with its URL.",
+      "input_schema": {
+        "properties": {
+          "accession_or_url": {
+            "title": "Accession Or Url",
+            "type": "string"
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cik"
+          }
+        },
+        "required": [
+          "accession_or_url"
+        ],
+        "title": "get_filingArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_form_d_details",
+      "title": "Parse a Form D (Reg D)",
+      "description": "Parse a Form D (Reg D) filing's structured offering data.\n\n    Returns the offering amount, amount sold and remaining, minimum investment,\n    number of investors, industry, revenue range, security types, claimed\n    exemptions, and the officers / directors / promoters behind the raise \u2014 the\n    fields you actually screen a private placement on.\n\n    `accession_or_url`: a Form D filing `url` (from `get_recent_offerings` or\n    `list_filings`), or an accession number (then also pass `cik`).",
+      "input_schema": {
+        "properties": {
+          "accession_or_url": {
+            "title": "Accession Or Url",
+            "type": "string"
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cik"
+          }
+        },
+        "required": [
+          "accession_or_url"
+        ],
+        "title": "get_form_d_detailsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_form_c_details",
+      "title": "Parse a Form C (Reg CF)",
+      "description": "Parse a Form C (Reg CF crowdfunding) filing's structured data.\n\n    Returns the offering terms (target & maximum raise, price per security,\n    security type, deadline, oversubscription), the funding-portal intermediary,\n    employee count, and a two-year financial snapshot (revenue, net income,\n    assets, cash, debt) \u2014 the fields you screen a crowdfunding raise on.\n\n    `accession_or_url`: a Form C filing `url` (from `get_recent_offerings` or\n    `list_filings`), or an accession number (then also pass `cik`).",
+      "input_schema": {
+        "properties": {
+          "accession_or_url": {
+            "title": "Accession Or Url",
+            "type": "string"
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cik"
+          }
+        },
+        "required": [
+          "accession_or_url"
+        ],
+        "title": "get_form_c_detailsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_company_facts",
+      "title": "Get company financials (XBRL)",
+      "description": "Headline financials for a public reporting company, from its XBRL facts.\n\n    Returns the latest annual values for revenue, gross profit, operating\n    income, net income, total assets, liabilities, stockholders' equity, and\n    cash. `cik_or_query`: a CIK or a name/ticker to resolve.\n\n    Only companies that file XBRL (public reporting companies) have this \u2014 most\n    private Reg CF / Reg D issuers do not; use `get_form_c_details` /\n    `get_form_d_details` for those instead.",
+      "input_schema": {
+        "properties": {
+          "cik_or_query": {
+            "title": "Cik Or Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cik_or_query"
+        ],
+        "title": "get_company_factsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_filing_text",
+      "title": "Read a filing document",
+      "description": "Fetch a filing document's text \u2014 for reading or summarizing it.\n\n    `url`: a document URL from `get_filing` (its `documents` / `primary_document`).\n    HTML documents are stripped to plain text. Filings are large (a 10-K can be\n    over a million characters), so the result is paginated: pass `offset` and\n    `max_chars` to page through. `truncated` indicates more text remains.",
+      "input_schema": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "max_chars": {
+            "default": 20000,
+            "title": "Max Chars",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "get_filing_textArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_insider_trades",
+      "title": "Get insider trades",
+      "description": "Recent insider (Section 16) transactions for a company, newest first.\n\n    Each result is one Form 4 filing: the reporting owner, their role(s), and the\n    trades reported (buy/sell/grant/exercise, shares, price, shares owned after).\n    `cik_or_query`: a CIK or a name/ticker to resolve.\n\n    Insider data exists for public reporting companies (officers, directors, and\n    >10% owners file Forms 3/4/5); most private Reg CF / Reg D issuers have none.",
+      "input_schema": {
+        "properties": {
+          "cik_or_query": {
+            "title": "Cik Or Query",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cik_or_query"
+        ],
+        "title": "get_insider_tradesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_insiders",
+      "title": "List a company's insiders",
+      "description": "The insiders of a company \u2014 officers, directors, and >10% owners.\n\n    Built from recent Section 16 filings (Forms 3/4/5), de-duplicated per person\n    with their role(s) and most recent filing date. `cik_or_query`: a CIK or a\n    name/ticker. Reflects recent filings, so very large boards may be partial.",
+      "input_schema": {
+        "properties": {
+          "cik_or_query": {
+            "title": "Cik Or Query",
+            "type": "string"
+          },
+          "limit": {
+            "default": 25,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cik_or_query"
+        ],
+        "title": "get_insidersArguments",
+        "type": "object"
+      }
+    }
+  ]
+}
