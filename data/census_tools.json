@@ -1,0 +1,175 @@
+{
+  "server": "census",
+  "tool_count": 8,
+  "tools": [
+    {
+      "name": "lookup_zip",
+      "title": "Look up a ZIP",
+      "description": "Confirm a ZIP maps to a Census ZCTA and return its name and population.\n\n    `zip_code`: a 5-digit US ZIP. A good first call to validate a ZIP before\n    asking for more detail. Returns the ZCTA, Census area name, total population,\n    and the ACS data vintage. ZIP \u2248 ZCTA; ~2% of ZIPs have no ZCTA and error.\n    ",
+      "input_schema": {
+        "properties": {
+          "zip_code": {
+            "title": "Zip Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zip_code"
+        ],
+        "title": "lookup_zipArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_income",
+      "title": "Get income by ZIP",
+      "description": "Income measures for a ZIP: median household, per-capita, and % $200k+.\n\n    `zip_code`: a 5-digit US ZIP. Returns median household income, per-capita\n    income, the number of households, and the percent of households earning\n    $200k+ \u2014 all ACS 5-year estimates in USD. Note: ACS top-codes median\n    household income at $250,001, so the wealthiest ZIPs (e.g. Atherton 94027)\n    report exactly that \u2014 read it as \"$250k or more,\" not an exact figure.\n    ",
+      "input_schema": {
+        "properties": {
+          "zip_code": {
+            "title": "Zip Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zip_code"
+        ],
+        "title": "get_incomeArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_demographics",
+      "title": "Get demographics by ZIP",
+      "description": "Population and median age for a ZIP.\n\n    `zip_code`: a 5-digit US ZIP. Returns the total population and the median\n    age of residents \u2014 both ACS 5-year estimates. (Age-bracket breakdowns,\n    e.g. under-18 / 18-34 / 35-64 / 65+, are on the roadmap.)\n    ",
+      "input_schema": {
+        "properties": {
+          "zip_code": {
+            "title": "Zip Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zip_code"
+        ],
+        "title": "get_demographicsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_housing",
+      "title": "Get housing by ZIP",
+      "description": "Housing measures for a ZIP: home value, rent, and owner-occupied share.\n\n    `zip_code`: a 5-digit US ZIP. Returns the median value of owner-occupied\n    homes, the median gross rent (monthly), the number of occupied housing\n    units, and the percent that are owner-occupied \u2014 all ACS 5-year estimates.\n    Note: ACS top-codes median home value at $2,000,001, so the priciest ZIPs\n    (e.g. Atherton 94027) report exactly that \u2014 read it as \"$2M or more,\" not an\n    exact value.\n    ",
+      "input_schema": {
+        "properties": {
+          "zip_code": {
+            "title": "Zip Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zip_code"
+        ],
+        "title": "get_housingArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_education",
+      "title": "Get education by ZIP",
+      "description": "Educational attainment for a ZIP: % bachelor's+ and % graduate degree.\n\n    `zip_code`: a 5-digit US ZIP. Of the population aged 25 and over, returns\n    the percent with a bachelor's degree or higher and the percent with a\n    graduate or professional degree \u2014 ACS 5-year estimates.\n    ",
+      "input_schema": {
+        "properties": {
+          "zip_code": {
+            "title": "Zip Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zip_code"
+        ],
+        "title": "get_educationArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "compare_zips",
+      "title": "Compare ZIPs",
+      "description": "Rank several ZIPs by a single metric, highest value first.\n\n    `zips`: a list of 5-digit US ZIPs to compare. `metric`: one of\n    `population`, `median_age`, `median_household_income`, `per_capita_income`,\n    `households_200k_plus_pct`, `median_home_value`, `median_gross_rent`,\n    `owner_occupied_pct`, `bachelors_plus_pct`, `graduate_or_professional_pct`.\n    Returns each ZIP's value, sorted descending; ZIPs with no data (suppressed\n    or no ZCTA) are listed last. All values are ACS 5-year estimates.\n    ",
+      "input_schema": {
+        "properties": {
+          "zips": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Zips",
+            "type": "array"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zips",
+          "metric"
+        ],
+        "title": "compare_zipsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_acs_variable",
+      "title": "Get a raw ACS variable",
+      "description": "Raw value of a single ACS variable for a ZIP \u2014 an escape hatch.\n\n    `zip_code`: a 5-digit US ZIP. `variable`: an ACS variable code (e.g.\n    `B19013_001E`) or the friendly store-column name (e.g.\n    `median_household_income`); both match case-insensitively. Returns that one\n    value for the ZIP. Limited to the variables held in the local store (the\n    same ones the other tools draw on); an unknown variable errors with the\n    full list.\n    ",
+      "input_schema": {
+        "properties": {
+          "zip_code": {
+            "title": "Zip Code",
+            "type": "string"
+          },
+          "variable": {
+            "title": "Variable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zip_code",
+          "variable"
+        ],
+        "title": "get_acs_variableArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "find_zips",
+      "title": "Find ZIPs for a place",
+      "description": "Reverse lookup: the ZIPs (ZCTAs) that fall within a named place.\n\n    `place`: a U.S. place name \u2014 an incorporated city/town or a census-designated\n    place (e.g. 'Cambridge', 'West Hollywood'); the Census descriptor is optional\n    ('Cambridge' and 'Cambridge city' both work). `state`: optional 2-letter USPS\n    code or full state name to disambiguate (many places share a name). Returns\n    the ZCTAs intersecting that place, ranked by `coverage_pct` \u2014 the share of\n    each ZCTA's land that lies within the place. This is approximate: ZCTAs don't\n    nest inside places, so a ZIP may span several places and vice versa. Built on\n    the public 2020 Census ZCTA-to-Place relationship file (no API key needed).\n    ",
+      "input_schema": {
+        "properties": {
+          "place": {
+            "title": "Place",
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          }
+        },
+        "required": [
+          "place"
+        ],
+        "title": "find_zipsArguments",
+        "type": "object"
+      }
+    }
+  ]
+}
