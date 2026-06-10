@@ -111,18 +111,27 @@ src/mcp_tool_surface_eval/
 tests/             oracle/scoring/fragmentation/execution/grading tests (no network)
 ```
 
-## Roadmap — the next experiment
+## Results so far
 
-**Descriptions: do honest caveats reduce confident-wrong answers?** (Principle 3 of the
-essay.) This is the planned second experiment, and it needs the opposite of the few-tools
-path: few-tools scores tool *selection* and never executes anything, whereas this one has
-to run the chosen tool against real data — a ZIP with no ZCTA, a top-coded income value, a
-filing outside the recent window — with and without the caveat in the tool's description,
-then grade whether the model reports the limitation or fabricates a confident answer.
+Full writeups in [`results/`](results/). Headlines:
 
-The control arm already exists (`surfaces.strip_caveats` builds the no-caveat surface); the
-execution-and-grading layer is the build. Designed but not yet implemented — tracked here so
-the scope is explicit rather than implied.
+**Few-tools** ([`results/few-tools-2026-06-04.md`](results/few-tools-2026-06-04.md)) — the
+predicted advantage of a small surface over a fragmented one **did not hold** on tool
+*selection*: Sonnet 100% vs 94%, Haiku 93% vs 92%, CIs overlapping. A capable model picks
+the right tool whether you hand it 11 tools or 26.
+
+**Descriptions** ([`results/descriptions-2026-06-10.md`](results/descriptions-2026-06-10.md))
+— a top-code caveat in the description sharply changes how the model *interprets* a result:
+
+| Model | With caveat | Caveat removed |
+|---|--:|--:|
+| claude-haiku-4-5 | **100%** flag the cap | **0%** — reports it as exact every time |
+| claude-sonnet-4-6 | **100%** | **80%** (already knows the ACS sentinels) |
+
+Together they sharpen the essay's claim: tool *selection* is robust to surface shape, but
+tool-result *interpretation* leans heavily on the description's caveats — most of all where
+the model lacks priors (smaller models, obscure datasets). That's the regime where a server
+most needs to carry its own warnings.
 
 ## Honesty notes
 
