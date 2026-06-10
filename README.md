@@ -37,6 +37,39 @@ scored task targets those**, so cosmetic fragmentation can't bias the result. A
 carried-through arm (tools that aren't fragmented) acts as a sanity check — it should
 score equally on both surfaces.
 
+## The descriptions experiment (implemented)
+
+> **Hypothesis.** A behavioral caveat in a tool description changes behavior:
+> telling the model that the ACS *top-codes* income and home value makes it report
+> a capped figure as "at least that" instead of as an exact number.
+
+This is principle 3 of the essay ("descriptions are the API"), and it needs the
+opposite of the few-tools path: few-tools scores tool *selection* and never executes
+anything; this one runs a short **agent loop** and grades the *answer*.
+
+- **Control** — `census-mcp` exactly as shipped (`data/census_tools.json`). Its
+  `get_income` / `get_housing` descriptions carry the caveat that ACS top-codes
+  median household income at \$250,001 and median home value at \$2,000,001.
+  *(The caveat wasn't there originally — building this eval surfaced that gap, so it
+  was added to census-mcp first; the fixture is the real, improved surface.)*
+- **Stripped** — the identical surface with **only** the `Note: ACS top-codes…`
+  sentence removed. Every other word is byte-for-byte the same, so the two arms
+  differ by exactly the variable under test.
+
+For each task the model is given one surface's tools plus a neutral `submit_answer`
+tool, under a neutral system prompt (it never mentions caps or precision). It calls
+a census tool, gets a **fixtured** result, and answers. The fixture returns the
+**raw capped integer** (`250001` / `2000001`) with *no annotation* — so the only
+place the "this is a cap" signal can come from is the description (or the model's
+own priors, which is itself a fair finding).
+
+**Grading is deterministic — no LLM judge.** A fixed, disclosed regex
+(`descriptions.py`, `_CAP_PHRASES` + `_CAP_VALUE_RE`) decides whether an answer
+flagged the value as a cap/floor ("at least", "or more", "top-coded", "capped",
+"$250,000+"…). Two task kinds keep it honest: **top-coded** tasks are correct only
+if the cap is acknowledged; **ordinary** ZIPs (values well below either cap) are
+correct only if it is *not* — a guard against an arm that simply always hedges.
+
 ## Run it
 
 ```bash
@@ -44,9 +77,12 @@ uv sync
 
 # Pipeline smoke test — deterministic keyword heuristic, NO API key, NOT a result:
 uv run mcp-tool-surface-eval few-tools --client mock
+uv run mcp-tool-surface-eval descriptions --client mock
 
-# Real run — needs a key; --trials repeats each (task, surface) to average over sampling:
+# Real runs — need a key; --trials repeats each (task, surface) to average over sampling:
 ANTHROPIC_API_KEY=sk-... uv run mcp-tool-surface-eval few-tools \
+    --client anthropic --model claude-sonnet-4-6 --trials 5 --out report.md
+ANTHROPIC_API_KEY=sk-... uv run mcp-tool-surface-eval descriptions \
     --client anthropic --model claude-sonnet-4-6 --trials 5 --out report.md
 ```
 
@@ -57,18 +93,22 @@ finding.** Only `--client anthropic` produces results worth citing.
 ## Layout
 
 ```
-data/edgar_tools.json      real captured edgar tool schemas (the control surface)
+data/edgar_tools.json      real captured edgar tool schemas (few-tools control)
+data/census_tools.json     real captured census tool schemas (descriptions control)
 src/mcp_tool_surface_eval/
-  models.py        ToolSpec / Surface / Task / Trial / ArmResult
-  surfaces.py      load the control surface; strip_caveats transform
+  models.py        ToolSpec / Surface / Task / Trial / ArmResult; Answer* types
+  surfaces.py      load the edgar control surface; strip_caveats transform
   fragmentation.py the explicit edgar fragmentation rules + applier
-  tasks.py         the task set, with per-surface expected answers
-  model_client.py  ModelClient protocol; AnthropicClient (real) + MockClient
-  runner.py        run every (surface, task); score each choice
-  score.py         aggregate + Wilson confidence interval
-  report.py        Markdown report (summary table + per-task breakdown)
-  cli.py           `few-tools` subcommand
-tests/             oracle/scoring/fragmentation tests (no network)
+  tasks.py         the few-tools task set, with per-surface expected answers
+  census_surface.py  load census; without_topcode_caveat (surgical strip)
+  execution.py     fixtured census tool execution (seeded ZIPs, raw caps)
+  descriptions.py  the descriptions task set, the regex grader, the run loop
+  model_client.py  ModelClient/AgentClient; AnthropicClient (real) + MockClient
+  runner.py        few-tools: run every (surface, task); score each choice
+  score.py         aggregate (+ aggregate_answers) + Wilson confidence interval
+  report.py        Markdown reports (few-tools + descriptions)
+  cli.py           `few-tools` and `descriptions` subcommands
+tests/             oracle/scoring/fragmentation/execution/grading tests (no network)
 ```
 
 ## Roadmap — the next experiment
@@ -86,8 +126,12 @@ the scope is explicit rather than implied.
 
 ## Honesty notes
 
-- The control surface is the **real** edgar schema, not a flattering paraphrase.
+- Both control surfaces are the **real** shipped schemas (edgar, census), not
+  flattering paraphrases. The descriptions arms differ by one removed sentence.
+- The census top-code caveat was added to the **real server** before capture — the
+  eval improves the thing it measures rather than testing a mock-up.
 - Fragments are faithful; the variant size is reported, not engineered.
+- Descriptions grading is a fixed, disclosed regex — no LLM judge in the loop.
 - `mock` results are never findings; only live-model runs are.
 - Results will be published as-is — including any that fail to support the essay.
 

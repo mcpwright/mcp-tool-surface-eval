@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import os
 import re
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import BaseModel, Field
+
+from .execution import result_to_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -24,6 +26,40 @@ _SELECT_SYSTEM = (
     "single most appropriate tool and call it. Do not ask questions; make your best "
     "choice. You must call exactly one tool."
 )
+
+# The descriptions experiment runs a short agent loop. The system prompt is kept
+# deliberately NEUTRAL — it never mentions precision, caps, or caveats — so the
+# only thing that differs between the two arms is the tool descriptions.
+_AGENT_SYSTEM = (
+    "You are a helpful assistant with the tools below, backed by U.S. Census "
+    "data. Use them to answer the user's question, then call submit_answer with "
+    "your final answer to the user."
+)
+
+# A neutral capture tool. The schema gives nothing away: just an answer string.
+_SUBMIT_TOOL: dict[str, Any] = {
+    "name": "submit_answer",
+    "description": "Call this once you can answer the user, with your final answer.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "answer": {
+                "type": "string",
+                "description": "Your final answer to the user.",
+            }
+        },
+        "required": ["answer"],
+    },
+}
+
+
+class AgentOutcome(BaseModel):
+    """The result of one agent run: its final answer and the tools it called."""
+
+    answer: str = Field(description="The model's final natural-language answer.")
+    tool_calls: list[str] = Field(
+        default_factory=list, description="Data tools called, in order."
+    )
 
 
 class ToolChoice(BaseModel):
@@ -39,6 +75,16 @@ class ToolChoice(BaseModel):
 
 class ModelClient(Protocol):
     def choose_tool(self, prompt: str, tools: list[ToolSpec]) -> ToolChoice: ...
+
+
+class AgentClient(Protocol):
+    def answer_with_tools(
+        self,
+        prompt: str,
+        tools: list[ToolSpec],
+        executor: Callable[[str, dict[str, Any]], dict[str, Any]],
+        max_rounds: int = 4,
+    ) -> AgentOutcome: ...
 
 
 # --- mock --------------------------------------------------------------------
@@ -116,6 +162,32 @@ class MockClient:
     def choose_tool(self, prompt: str, tools: list[ToolSpec]) -> ToolChoice:
         return self._policy(prompt, tools)
 
+    def answer_with_tools(
+        self,
+        prompt: str,
+        tools: list[ToolSpec],
+        executor: Callable[[str, dict[str, Any]], dict[str, Any]],
+        max_rounds: int = 4,
+    ) -> AgentOutcome:
+        """Deterministic smoke run: call the best-overlap tool, echo the figure.
+
+        Calls no language model and never adds caveat language, so its answers
+        are a pipeline check, NOT a finding.
+        """
+        choice = self._policy(prompt, tools)
+        if not choice.name:
+            return AgentOutcome(answer="No tool available.", tool_calls=[])
+        args: dict[str, Any] = {}
+        zip_match = re.search(r"\b(\d{5})\b", prompt)
+        if zip_match:
+            args["zip_code"] = zip_match.group(1)
+        result = executor(choice.name, args)
+        figure = next((v for v in result.values() if isinstance(v, int | float)), None)
+        return AgentOutcome(
+            answer=f"Based on Census data, the value is {figure}.",
+            tool_calls=[choice.name],
+        )
+
 
 # --- real --------------------------------------------------------------------
 
@@ -158,3 +230,73 @@ class AnthropicClient:
             if getattr(block, "type", None) == "tool_use":
                 return ToolChoice(name=block.name, arguments=dict(block.input or {}))
         return ToolChoice(name=None)
+
+    def answer_with_tools(
+        self,
+        prompt: str,
+        tools: list[ToolSpec],
+        executor: Callable[[str, dict[str, Any]], dict[str, Any]],
+        max_rounds: int = 4,
+    ) -> AgentOutcome:
+        """Run a short agent loop: call data tools, then submit a final answer.
+
+        Each round forces a single tool call; the last round forces `submit_answer`
+        so the loop always terminates with an answer. Data-tool results come from
+        `executor` (the fixture), fed back as tool_result blocks. Parallel tool use
+        is disabled — we feed back one tool_result per turn, and a turn with an
+        unmatched tool_use block would make the next request 400.
+        """
+        if max_rounds < 2:
+            raise ValueError("max_rounds must be >= 2 (one to gather, one to submit).")
+        api_tools = [
+            {
+                "name": t.name,
+                "description": t.description,
+                "input_schema": t.input_schema or {"type": "object", "properties": {}},
+            }
+            for t in tools
+        ] + [_SUBMIT_TOOL]
+        messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
+        calls: list[str] = []
+
+        for round_i in range(max_rounds):
+            force_submit = round_i == max_rounds - 1
+            tool_choice: dict[str, Any] = (
+                {"type": "tool", "name": "submit_answer"}
+                if force_submit
+                else {"type": "any"}
+            )
+            tool_choice["disable_parallel_tool_use"] = True
+            msg = self._client.messages.create(  # type: ignore[call-overload]
+                model=self._model,
+                max_tokens=self._max_tokens,
+                system=_AGENT_SYSTEM,
+                tools=api_tools,
+                tool_choice=tool_choice,
+                messages=messages,
+            )
+            use = next(
+                (b for b in msg.content if getattr(b, "type", None) == "tool_use"),
+                None,
+            )
+            if use is None:
+                return AgentOutcome(answer="", tool_calls=calls)
+            if use.name == "submit_answer":
+                answer = str((use.input or {}).get("answer", ""))
+                return AgentOutcome(answer=answer, tool_calls=calls)
+            calls.append(use.name)
+            result = executor(use.name, dict(use.input or {}))
+            messages.append({"role": "assistant", "content": msg.content})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": use.id,
+                            "content": result_to_text(result),
+                        }
+                    ],
+                }
+            )
+        return AgentOutcome(answer="", tool_calls=calls)
